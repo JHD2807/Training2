@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training Tracker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --bg:#EDF2EE; --surface:#FFFFFF; --ink:#18241F; --muted:#66766D;
+    --line:#D8E1DA; --pine:#2F6B50; --pine-dark:#234F3B; --pine-soft:#E2EFE7;
+    --amber:#DFA32A; --amber-soft:#FBF2DC; --clay-soft:#F8E9E2; --clay-ink:#7A3A22;
+    --display:'Barlow Condensed','Arial Narrow',sans-serif;
+    --body:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);font-family:var(--body);color:var(--ink);padding-bottom:90px}
+  .wrap{max-width:480px;margin:0 auto;padding:20px 16px 0}
+
+  /* Header */
+  .header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px}
+  .date-line{font-size:13px;font-weight:600;color:var(--muted)}
+  .day-title{font-family:var(--display);font-weight:800;font-size:34px;line-height:1.05}
+  .streak-num{font-family:var(--display);font-weight:800;font-size:30px;line-height:1;color:var(--muted);text-align:right}
+  .streak-num.active{color:var(--amber)}
+  .streak-label{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;text-align:right}
+
+  /* Cards */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+  .card.tight{padding:12px 16px}
+  .section-label{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+  /* Progress bar */
+  .pct-row{display:flex;justify-content:space-between;align-items:baseline}
+  .pct{font-family:var(--display);font-weight:800;font-size:22px}
+  .bar{height:10px;border-radius:6px;background:var(--pine-soft);margin-top:10px;overflow:hidden}
+  .bar-fill{height:100%;background:var(--pine);border-radius:6px;transition:width .25s ease;width:0}
+  .bar-fill.full{background:var(--amber)}
+  .complete-msg{margin-top:10px;font-size:14px;font-weight:600;color:var(--pine-dark)}
+
+  /* Exercise rows */
+  .group-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:14px}
+  .group-head{padding:12px 16px 4px}
+  .ex-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}
+  .ex-row:first-of-type{border-top:none}
+  .checkbox{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);background:transparent;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s ease;padding:0}
+  .checkbox.done{border-color:var(--pine);background:var(--pine)}
+  .ex-main{flex:1;background:none;border:none;text-align:left;cursor:pointer;font-family:var(--body);padding:0}
+  .ex-name{font-size:15.5px;font-weight:600;color:var(--ink)}
+  .ex-name.done{color:var(--muted);text-decoration:line-through}
+  .ex-dose{font-size:13px;color:var(--pine);font-weight:600}
+  .chev{color:var(--muted);font-size:18px;transition:transform .15s;user-select:none}
+  .chev.open{transform:rotate(180deg)}
+  .ex-detail{padding:0 16px 14px 54px;font-size:14px;line-height:1.5;color:var(--muted)}
+
+  /* Safety */
+  .safety{background:var(--clay-soft);border:1px solid #E5C2B2;border-radius:16px;padding:14px;font-size:13.5px;line-height:1.55;color:var(--clay-ink);margin-bottom:14px}
+
+  /* Buttons */
+  .btn{border:none;border-radius:12px;cursor:pointer;font-family:var(--body);font-weight:700;font-size:15px}
+  .btn-primary{background:var(--pine);color:#fff;padding:13px 0;width:100%}
+  .btn-primary.big{border-radius:14px;padding:14px 0;margin-bottom:14px}
+  .btn-ghost{background:var(--surface);color:var(--muted);border:1.5px solid var(--line);font-weight:600;padding:13px 0}
+  .checkin-prompt{background:var(--amber-soft);border:1.5px solid var(--amber);border-radius:16px;padding:16px;text-align:left;cursor:pointer;width:100%;font-family:var(--body);margin-bottom:14px}
+  .checkin-prompt h3{font-family:var(--display);font-weight:800;font-size:20px;color:var(--ink)}
+  .checkin-prompt p{font-size:13px;color:var(--muted);margin-top:4px}
+
+  /* Check-in form */
+  .form-title{font-family:var(--display);font-weight:800;font-size:24px;margin-bottom:16px}
+  .field{margin-bottom:16px}
+  .field-label{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px}
+  .field input[type=number]{width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--line);font-size:16px;font-family:var(--body);background:#FBFDFB;color:var(--ink);outline:none}
+  .field input[type=range]{width:100%;accent-color:var(--pine)}
+  .seg{display:flex;gap:8px}
+  .seg button{flex:1;padding:10px 0;border-radius:12px;font-size:14px;font-weight:600;font-family:var(--body);cursor:pointer;border:1.5px solid var(--line);background:var(--surface);color:var(--muted)}
+  .seg button.sel{border-color:var(--pine);background:var(--pine-soft);color:var(--pine-dark)}
+  .form-actions{display:flex;gap:10px}
+  .form-actions .btn-ghost{flex:1}
+  .form-actions .btn-primary{flex:2}
+
+  /* Stats */
+  .stats{display:flex;gap:12px;margin-bottom:14px}
+  .stat{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 8px;text-align:center}
+  .stat-v{font-family:var(--display);font-weight:800;font-size:28px;color:var(--pine)}
+  .stat-l{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+
+  /* Weight chart */
+  .weight-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .weight-num{font-family:var(--display);font-weight:800;font-size:28px}
+  .weight-num span{font-size:15px;color:var(--muted);font-weight:600}
+  .chart-note{font-size:12px;color:var(--muted);margin-top:6px}
+
+  /* History */
+  .hist-row{padding:10px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:14px}
+  .hist-row:first-of-type{border-top:none}
+  .hist-date{font-weight:600}
+  .hist-meta{color:var(--muted);font-size:13px}
+  .hist-w{font-family:var(--display);font-weight:800;font-size:20px;color:var(--pine)}
+
+  /* Ladder */
+  .ladder{background:var(--pine-dark);border-radius:16px;padding:18px 16px 22px;margin-bottom:14px}
+  .ladder-eyebrow{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:#9FC4B0;margin-bottom:4px}
+  .ladder-title{font-family:var(--display);font-weight:800;font-size:26px;color:#fff;margin-bottom:16px;line-height:1.1}
+  .ladder-track{display:flex;align-items:flex-end;gap:6px}
+  .rung{flex:1;text-align:center}
+  .rung-bar{border-radius:6px 6px 0 0;background:rgba(255,255,255,.14)}
+  .rung.reached .rung-bar{background:#4E8A6C}
+  .rung.current .rung-bar{background:var(--amber)}
+  .rung-name{font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-top:6px;color:rgba(255,255,255,.4)}
+  .rung.reached .rung-name{color:#CFE4D8}
+  .rung.current .rung-name{color:var(--amber)}
+  .rung-week{font-size:10px;color:rgba(255,255,255,.45)}
+
+  /* Plan lists */
+  .plan-row{padding:12px 0;border-top:1px solid var(--line)}
+  .plan-row:first-of-type{border-top:none}
+  .plan-days{font-size:12px;font-weight:700;color:var(--pine);letter-spacing:.08em;text-transform:uppercase}
+  .plan-title{font-weight:700;font-size:15.5px;margin:2px 0}
+  .plan-desc{font-size:13.5px;color:var(--muted);line-height:1.5}
+  .mile-row{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+  .mile-row:first-of-type{border-top:none}
+  .mile-badge{font-family:var(--display);font-weight:800;font-size:16px;width:44px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--pine-soft);color:var(--pine-dark)}
+  .mile-row.hit .mile-badge{background:var(--pine);color:#fff}
+  .mile-text{font-size:14.5px;font-weight:500}
+  .mile-row.hit .mile-text{color:var(--muted)}
+  .nutrition{font-size:14px;line-height:1.65;padding-top:8px}
+  .footnote{font-size:12px;color:var(--muted);text-align:center;padding:4px 0 8px}
+
+  /* Bottom nav */
+  .nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px 0 14px;z-index:10}
+  .nav-inner{display:flex;gap:6px;max-width:480px;width:100%;padding:0 16px}
+  .nav button{flex:1;padding:11px 0;border-radius:12px;border:none;cursor:pointer;font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.05em;text-transform:uppercase;background:transparent;color:var(--muted);transition:all .15s}
+  .nav button.active{background:var(--pine);color:#fff}
+  .hidden{display:none}
+  .loading{min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app" class="loading">Loading your program…</div>
+
+<script>
+/* ══════════════════ PROGRAM DATA ══════════════════ */
+const GOAL_WEIGHT = 86, START_WEIGHT = 93, STORAGE_KEY = "training-tracker-v1";
+
+const WARMUP = [
+  {id:"wu1",name:"March in place",dose:"",detail:"1 minute, easy pace."},
+  {id:"wu2",name:"Shoulder circles",dose:"",detail:"20 forward, 20 backward."},
+  {id:"wu3",name:"Hip circles",dose:"",detail:"10 each direction."},
+  {id:"wu4",name:"Cat–Cow stretch",dose:"",detail:"10 slow reps."},
+  {id:"wu5",name:"Pelvic tilts",dose:"",detail:"10 reps."},
+  {id:"wu6",name:"Gentle walking",dose:"",detail:"2 minutes."},
+];
+const CORE = [
+  {id:"c1",name:"Front plank (knees)",dose:"3 × 15 s",detail:"On knees and forearms. Straight line from knees to head. Breathe normally."},
+  {id:"c2",name:"Side plank (knees)",dose:"2 × 10 s / side",detail:"On knees, hips lifted, body in one line. Repeat both sides."},
+  {id:"c3",name:"McGill curl-up",dose:"8 × 5 s",detail:"One knee bent, hands under lower back. Lift only head and shoulders slightly. Hold 5 s. A back-rehab standard."},
+];
+const STRETCHES = [
+  {id:"s1",name:"Hamstring stretch",dose:"30 s each",detail:"Gentle, no bouncing."},
+  {id:"s2",name:"Hip flexor stretch",dose:"30 s each",detail:"Half-kneeling, tuck pelvis slightly."},
+  {id:"s3",name:"Chest stretch",dose:"30 s",detail:"Doorway or wall."},
+  {id:"s4",name:"Child's Pose",dose:"30 s",detail:"Relax and breathe into the lower back."},
+  {id:"s5",name:"Cat–Cow",dose:"10 reps",detail:"Slow, pain-free range only."},
+];
+const PUSHUP_STAGES = [
+  {fromWeek:1,name:"Wall push-ups",short:"Wall"},
+  {fromWeek:5,name:"Counter push-ups",short:"Counter"},
+  {fromWeek:7,name:"Bench push-ups",short:"Bench"},
+  {fromWeek:10,name:"Incline push-ups",short:"Incline"},
+  {fromWeek:14,name:"Floor push-up",short:"Floor"},
+];
+const DAY_TYPES = {1:"strength",3:"strength",5:"strength",2:"cardio",4:"cardio",6:"cardio",0:"recovery"};
+const DAY_LABELS = {strength:"Strength Day A",cardio:"Mobility + Cardio",recovery:"Recovery"};
+const MILESTONES = [
+  [2,"Comfortable exercising daily"],[4,"12 wall push-ups per set"],
+  [6,"Begin incline work at the counter"],[8,"Walk 40–45 min comfortably"],
+  [12,"First floor push-up (or very close)"],[16,"Reach 86 kg"],
+];
+const RHYTHM = [
+  ["Mon · Wed · Fri","Strength Day A","Push-up progression, sit-to-stand, glute bridge, bird dog, dead bug + 15 min walk"],
+  ["Tue · Thu · Sat","Mobility + Cardio","20–30 min conversational walk + full stretching routine"],
+  ["Sunday","Recovery + check-in","Easy 20 min walk, 10 min stretch, weekly check-in. No strength work."],
+  ["Every day","Core trio","Modified plank, side plank, McGill curl-up — all back-rehab staples"],
+];
+
+/* ══════════════════ HELPERS ══════════════════ */
+const toKey = d => d.toISOString().slice(0,10);
+const todayKey = () => toKey(new Date());
+
+function pushupStage(week){
+  let stage = PUSHUP_STAGES[0], idx = 0;
+  PUSHUP_STAGES.forEach((s,i)=>{ if(week>=s.fromWeek){stage=s;idx=i;} });
+  return {...stage, idx};
+}
+function pushupTarget(week){
+  if(week<=1) return "3 × 8";
+  if(week===2) return "3 × 10";
+  if(week===3) return "3 × 12";
+  if(week===4) return "3 × 12 · feet farther from wall";
+  return "3 × 8–12";
+}
+function walkTarget(week,dayType){
+  const base = week<=1?20 : week===2?25 : week===3?30 : week===4?35 : Math.min(45+(week-5)*2,60);
+  if(dayType==="strength") return 15;
+  if(dayType==="recovery") return 20;
+  return base;
+}
+function weekNumber(startDate){
+  const start = new Date(startDate+"T00:00:00");
+  const diff = Math.floor((new Date()-start)/86400000);
+  return Math.max(1, Math.floor(diff/7)+1);
+}
+function strengthExercises(week){
+  const stage = pushupStage(week);
+  return [
+    {id:"e1",name:stage.name,dose:pushupTarget(week),detail:"Hands shoulder-width. Body in one straight line — do not let the hips sag. Lower slowly, press back up. Rest 60 s between sets. This is the exercise we progress toward your first floor push-up."},
+    {id:"e2",name:"Sit-to-Stand",dose:"3 × 10",detail:"Sit on a chair, stand up, sit down slowly. Builds leg strength without loading the spine."},
+    {id:"e3",name:"Glute Bridge",dose:"3 × 10",detail:"On your back, knees bent. Lift hips until shoulders–hips–knees align. Hold 2 s, lower slowly. Excellent lower-back support."},
+    {id:"e4",name:"Bird Dog",dose:"2 × 8 / side",detail:"Hands and knees. Extend opposite arm and leg, hold 3 s, return. One of the best spinal-stability exercises."},
+    {id:"e5",name:"Dead Bug",dose:"2 × 8 / side",detail:"On your back, lower back gently pressed to the floor. Move opposite arm and leg slowly."},
+  ];
+}
+function buildDayItems(dayType,week){
+  const items = [{group:"Warm-up · 5 min",entries:WARMUP}];
+  if(dayType==="strength"){
+    items.push({group:"Strength",entries:strengthExercises(week)});
+    items.push({group:"Walk",entries:[{id:"walk",name:"Walking",dose:walkTarget(week,"strength")+" min",detail:"Comfortable pace."}]});
+  } else if(dayType==="cardio"){
+    items.push({group:"Walk",entries:[{id:"walk",name:"Walking",dose:walkTarget(week,"cardio")+" min",detail:"You should still be able to hold a conversation."}]});
+    items.push({group:"Stretching",entries:STRETCHES});
+  } else {
+    items.push({group:"Walk",entries:[{id:"walk",name:"Easy walk",dose:"20 min",detail:"Recovery pace."}]});
+    items.push({group:"Stretch",entries:[{id:"rstr",name:"Full-body stretch",dose:"10 min",detail:"Use the stretching list from cardio days. No strength training today."}]});
+  }
+  items.push({group:"Daily core",entries:CORE});
+  return items;
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ══════════════════ STORAGE ══════════════════ */
+async function loadData(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY);
+    if(res && res.value) return JSON.parse(res.value);
+  }catch(e){ /* first run: key not found */ }
+  return {startDate: todayKey(), logs:{}, checkins:[]};
+}
+async function saveData(){
+  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(state.data)); }
+  catch(e){ console.error("Save failed", e); }
+}
+
+/* ══════════════════ STATE ══════════════════ */
+const state = { data:null, tab:"today", expanded:null, showCheckin:false, form:{difficulty:5, backPain:"same"} };
+
+function streak(){
+  let s = 0;
+  const d = new Date();
+  const hasWork = k => { const l = state.data.logs[k]; return l && Object.values(l.done||{}).some(Boolean); };
+  if(!hasWork(toKey(d))) d.setDate(d.getDate()-1);
+  while(hasWork(toKey(d))){ s++; d.setDate(d.getDate()-1); }
+  return s;
+}
+
+/* ══════════════════ RENDER ══════════════════ */
+function render(){
+  const app = document.getElementById("app");
+  app.className = "";
+  const today = new Date();
+  const tKey = todayKey();
+  const dayType = DAY_TYPES[today.getDay()];
+  const week = weekNumber(state.data.startDate);
+  const dayItems = buildDayItems(dayType, week);
+  const flat = dayItems.flatMap(g=>g.entries);
+  const todayLog = state.data.logs[tKey] || {done:{}};
+  const doneCount = flat.filter(e=>todayLog.done && todayLog.done[e.id]).length;
+  const pct = Math.round(doneCount/flat.length*100);
+  const st = streak();
+  const dateLabel = today.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
+  const isSunday = today.getDay()===0;
+  const checkedInToday = state.data.checkins.some(c=>c.date===tKey);
+
+  let html = `<div class="wrap">
+    <div class="header">
+      <div>
+        <div class="date-line">${dateLabel} · Week ${week}</div>
+        <div class="day-title">${DAY_LABELS[dayType]}</div>
+      </div>
+      <div>
+        <div class="streak-num ${st>0?"active":""}">${st}</div>
+        <div class="streak-label">day streak</div>
+      </div>
+    </div>`;
+
+  /* ── TODAY ── */
+  if(state.tab==="today"){
+    html += `<div class="card">
+      <div class="pct-row"><span class="section-label">Session progress</span>
+      <span class="pct" style="color:${pct===100?"var(--pine)":"var(--ink)"}">${pct}%</span></div>
+      <div class="bar"><div class="bar-fill ${pct===100?"full":""}" style="width:${pct}%"></div></div>
+      ${pct===100?'<div class="complete-msg">Session complete. Well done — consistency is the whole game.</div>':""}
+    </div>`;
+
+    if(isSunday && !checkedInToday && !state.showCheckin){
+      html += `<button class="checkin-prompt" onclick="openCheckin()">
+        <h3>It's Sunday — check-in time</h3>
+        <p>Log weight, difficulty, back status and best push-up set. Tap to start.</p>
+      </button>`;
+    }
+    if(state.showCheckin) html += checkinFormHTML();
+
+    dayItems.forEach(group=>{
+      html += `<div class="group-card"><div class="group-head"><span class="section-label">${esc(group.group)}</span></div>`;
+      group.entries.forEach(e=>{
+        const done = !!(todayLog.done && todayLog.done[e.id]);
+        const open = state.expanded===e.id;
+        html += `<div class="ex-row">
+          <button class="checkbox ${done?"done":""}" onclick="toggleDone('${e.id}')" aria-label="Mark ${esc(e.name)} ${done?"not done":"done"}">
+            ${done?'<svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7.5 L5.5 11 L12 3.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':""}
+          </button>
+          <button class="ex-main" onclick="toggleExpand('${e.id}')">
+            <div class="ex-name ${done?"done":""}">${esc(e.name)}</div>
+            ${e.dose?`<div class="ex-dose">${esc(e.dose)}</div>`:""}
+          </button>
+          ${e.detail?`<span class="chev ${open?"open":""}">▾</span>`:""}
+        </div>
+        ${open && e.detail?`<div class="ex-detail">${esc(e.detail)}</div>`:""}`;
+      });
+      html += `</div>`;
+    });
+
+    html += `<div class="safety"><strong>Stop and seek medical evaluation</strong> if you feel pain radiating down a leg, numbness, weakness, or loss of bowel/bladder control. Mild muscle soreness is fine; sharp back pain is not.</div>`;
+  }
+
+  /* ── PROGRESS ── */
+  if(state.tab==="progress"){
+    html += weightChartHTML();
+    html += `<div class="stats">
+      <div class="stat"><div class="stat-v">${week}</div><div class="stat-l">week of program</div></div>
+      <div class="stat"><div class="stat-v">${Object.keys(state.data.logs).length}</div><div class="stat-l">days trained</div></div>
+      <div class="stat"><div class="stat-v">${state.data.checkins.length}</div><div class="stat-l">check-ins</div></div>
+    </div>`;
+    if(!state.showCheckin){
+      html += `<button class="btn btn-primary big" onclick="openCheckin()">Add a check-in now</button>`;
+    } else {
+      html += checkinFormHTML();
+    }
+    if(state.data.checkins.length>0){
+      html += `<div class="card tight"><span class="section-label">Check-in history</span>`;
+      [...state.data.checkins].reverse().forEach(c=>{
+        html += `<div class="hist-row">
+          <div><div class="hist-date">${esc(c.date)}</div>
+          <div class="hist-meta">Effort ${c.difficulty}/10 · Back ${esc(c.backPain)}${c.maxReps?` · best set ${c.maxReps} reps`:""}</div></div>
+          <div class="hist-w">${c.weight?c.weight+" kg":"—"}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+  }
+
+  /* ── PLAN ── */
+  if(state.tab==="plan"){
+    const cur = pushupStage(week);
+    html += `<div class="ladder">
+      <div class="ladder-eyebrow">The road to your first push-up</div>
+      <div class="ladder-title">${esc(cur.name)}</div>
+      <div class="ladder-track">`;
+    PUSHUP_STAGES.forEach((s,i)=>{
+      const cls = i===cur.idx?"current":(i<cur.idx?"reached":"");
+      html += `<div class="rung ${cls}">
+        <div class="rung-bar" style="height:${18+i*12}px"></div>
+        <div class="rung-name">${s.short}</div>
+        <div class="rung-week">w${s.fromWeek}+</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+
+    html += `<div class="card tight"><span class="section-label">Weekly rhythm</span>`;
+    RHYTHM.forEach(([days,title,desc])=>{
+      html += `<div class="plan-row"><div class="plan-days">${days}</div>
+        <div class="plan-title">${title}</div><div class="plan-desc">${desc}</div></div>`;
+    });
+    html += `</div>`;
+
+    html += `<div class="card tight"><span class="section-label">Milestones</span>`;
+    MILESTONES.forEach(([w,m])=>{
+      html += `<div class="mile-row ${week>=w?"hit":""}">
+        <div class="mile-badge">W${w}</div><div class="mile-text">${m}</div></div>`;
+    });
+    html += `</div>`;
+
+    html += `<div class="card tight"><span class="section-label">Nutrition anchors</span>
+      <div class="nutrition">Steady loss of 0.4–0.7 kg/week. Protein around 120–150 g/day to protect muscle. Vegetables at lunch and dinner. Water instead of sugary drinks (2.5–3 L/day), and go easy on alcohol and high-calorie snacks.</div>
+    </div>
+    <div class="footnote">Program started ${esc(state.data.startDate)} · data saved automatically</div>`;
+  }
+
+  html += `</div>
+  <div class="nav"><div class="nav-inner">
+    <button class="${state.tab==="today"?"active":""}" onclick="setTab('today')">Today</button>
+    <button class="${state.tab==="progress"?"active":""}" onclick="setTab('progress')">Progress</button>
+    <button class="${state.tab==="plan"?"active":""}" onclick="setTab('plan')">Plan</button>
+  </div></div>`;
+
+  app.innerHTML = html;
+
+  // hydrate check-in form values after re-render
+  if(state.showCheckin){
+    const w = document.getElementById("ci-weight"), r = document.getElementById("ci-reps");
+    if(w) w.value = state.form.weight||"";
+    if(r) r.value = state.form.maxReps||"";
+  }
+}
+
+function weightChartHTML(){
+  const points = state.data.checkins.filter(c=>c.weight).map(c=>Number(c.weight));
+  const all = [START_WEIGHT, ...points];
+  const min = Math.min(GOAL_WEIGHT-1, ...all), max = Math.max(START_WEIGHT+1, ...all);
+  const W=320,H=150,pad=10;
+  const x = i => pad + (all.length===1?0:(i/(all.length-1))*(W-pad*2));
+  const y = w => pad + ((max-w)/(max-min))*(H-pad*2);
+  const path = all.map((w,i)=>`${i===0?"M":"L"}${x(i).toFixed(1)},${y(w).toFixed(1)}`).join(" ");
+  const goalY = y(GOAL_WEIGHT).toFixed(1);
+  const latest = all[all.length-1];
+  let dots = all.map((w,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(w).toFixed(1)}" r="4" fill="${i===all.length-1?"var(--pine)":"#fff"}" stroke="var(--pine)" stroke-width="2"/>`).join("");
+  const note = points.length===0
+    ? "Starting at 93 kg. Log your weight each Sunday to draw the line."
+    : `${(START_WEIGHT-latest).toFixed(1)} kg lost · ${(latest-GOAL_WEIGHT).toFixed(1)} kg to go`;
+  return `<div class="card">
+    <div class="weight-head"><span class="section-label">Weight</span>
+      <span class="weight-num">${latest.toFixed(1)}<span> kg</span></span></div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+      <line x1="${pad}" x2="${W-pad}" y1="${goalY}" y2="${goalY}" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="${W-pad}" y="${goalY-5}" text-anchor="end" font-size="11" fill="var(--amber)" font-weight="600" font-family="Inter,sans-serif">goal 86 kg</text>
+      <path d="${path}" stroke="var(--pine)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}
+    </svg>
+    <div class="chart-note">${note}</div>
+  </div>`;
+}
+
+function checkinFormHTML(){
+  const f = state.form;
+  return `<div class="card">
+    <div class="form-title">Sunday check-in</div>
+    <div class="field"><div class="field-label">Current weight (kg)</div>
+      <input id="ci-weight" type="number" step="0.1" inputmode="decimal" placeholder="e.g. 92.4" oninput="state.form.weight=this.value"></div>
+    <div class="field"><div class="field-label">How hard did this week feel? · <span id="ci-diff-v">${f.difficulty}</span>/10</div>
+      <input type="range" min="1" max="10" value="${f.difficulty}" oninput="state.form.difficulty=Number(this.value);document.getElementById('ci-diff-v').textContent=this.value"></div>
+    <div class="field"><div class="field-label">Back pain this week</div>
+      <div class="seg">
+        ${["better","same","worse"].map(v=>`<button class="${f.backPain===v?"sel":""}" onclick="setBack('${v}')">${v[0].toUpperCase()+v.slice(1)}</button>`).join("")}
+      </div></div>
+    <div class="field"><div class="field-label">Best push-up set this week (reps)</div>
+      <input id="ci-reps" type="number" inputmode="numeric" placeholder="e.g. 10" oninput="state.form.maxReps=this.value"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeCheckin()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCheckin()">Save check-in</button>
+    </div>
+  </div>`;
+}
+
+/* ══════════════════ ACTIONS ══════════════════ */
+function setTab(t){ state.tab=t; state.expanded=null; render(); }
+function toggleExpand(id){ state.expanded = state.expanded===id?null:id; render(); }
+function toggleDone(id){
+  const tKey = todayKey();
+  const log = state.data.logs[tKey] || {done:{}};
+  log.done = log.done || {};
+  log.done[id] = !log.done[id];
+  state.data.logs[tKey] = log;
+  render();
+  saveData();
+}
+function openCheckin(){ state.showCheckin=true; state.form={difficulty:5,backPain:"same"}; render(); }
+function closeCheckin(){ state.showCheckin=false; render(); }
+function setBack(v){ state.form.backPain=v; render(); }
+function saveCheckin(){
+  const f = state.form;
+  state.data.checkins.push({
+    date: todayKey(),
+    weight: f.weight?Number(f.weight):null,
+    difficulty: f.difficulty,
+    backPain: f.backPain,
+    maxReps: f.maxReps?Number(f.maxReps):null,
+  });
+  state.showCheckin=false;
+  render();
+  saveData();
+}
+
+/* ══════════════════ INIT ══════════════════ */
+loadData().then(d=>{ state.data=d; render(); });
+</script>
+</body>
+</html>

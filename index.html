@@ -238,17 +238,29 @@ function buildDayItems(dayType,week){
 }
 function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
-/* ══════════════════ STORAGE ══════════════════ */
+/* ══════════════════ STORAGE ══════════════════
+   Uses localStorage in normal browsers (Safari, Chrome, GitHub Pages).
+   Falls back to Claude's window.storage if running as a Claude artifact. */
+const inClaude = typeof window.storage !== "undefined" && window.storage && typeof window.storage.get === "function";
+
 async function loadData(){
   try{
-    const res = await window.storage.get(STORAGE_KEY);
-    if(res && res.value) return JSON.parse(res.value);
-  }catch(e){ /* first run: key not found */ }
+    if(inClaude){
+      const res = await window.storage.get(STORAGE_KEY);
+      if(res && res.value) return JSON.parse(res.value);
+    } else {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+    }
+  }catch(e){ /* first run or corrupted data: start fresh */ }
   return {startDate: todayKey(), logs:{}, checkins:[]};
 }
 async function saveData(){
-  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(state.data)); }
-  catch(e){ console.error("Save failed", e); }
+  try{
+    const raw = JSON.stringify(state.data);
+    if(inClaude) await window.storage.set(STORAGE_KEY, raw);
+    else localStorage.setItem(STORAGE_KEY, raw);
+  }catch(e){ console.error("Save failed", e); }
 }
 
 /* ══════════════════ STATE ══════════════════ */

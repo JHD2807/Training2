@@ -126,6 +126,15 @@
   .nutrition{font-size:14px;line-height:1.65;padding-top:8px}
   .footnote{font-size:12px;color:var(--muted);text-align:center;padding:4px 0 8px}
 
+  /* Exercise animation */
+  .anim-box{background:var(--pine-soft);border-radius:12px;padding:8px 8px 4px;margin-bottom:10px}
+  .anim-box svg{width:100%;height:auto;display:block}
+  .anim-cap{font-size:11px;font-weight:600;color:var(--pine-dark);text-transform:uppercase;letter-spacing:.06em;text-align:center;padding:2px 0 4px}
+  .fig{stroke:var(--pine-dark);stroke-width:4.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .fig-far{stroke:#8FB4A0;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .j-head{fill:var(--pine-dark)}
+  .p-line{stroke:#AFC6B7;stroke-width:3;fill:none;stroke-linecap:round}
+
   /* Bottom nav */
   .nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px 0 14px;z-index:10}
   .nav-inner{display:flex;gap:6px;max-width:480px;width:100%;padding:0 16px}
@@ -283,6 +292,7 @@ function render(){
   const tKey = todayKey();
   const dayType = DAY_TYPES[today.getDay()];
   const week = weekNumber(state.data.startDate);
+  state.pushIdx = pushupStage(week).idx;
   const dayItems = buildDayItems(dayType, week);
   const flat = dayItems.flatMap(g=>g.entries);
   const todayLog = state.data.logs[tKey] || {done:{}};
@@ -337,7 +347,7 @@ function render(){
           </button>
           ${e.detail?`<span class="chev ${open?"open":""}">▾</span>`:""}
         </div>
-        ${open && e.detail?`<div class="ex-detail">${esc(e.detail)}</div>`:""}`;
+        ${open?`<div class="ex-detail">${animKeyFor(e.id)?'<div class="anim-box"><div id="anim-slot"></div><div class="anim-cap">Animated guide · side view</div></div>':""}${e.detail?esc(e.detail):""}</div>`:""}`;
       });
       html += `</div>`;
     });
@@ -423,6 +433,7 @@ function render(){
     if(w) w.value = state.form.weight||"";
     if(r) r.value = state.form.maxReps||"";
   }
+  syncAnim();
 }
 
 function weightChartHTML(){
@@ -502,7 +513,156 @@ function saveCheckin(){
   saveData();
 }
 
-/* ══════════════════ INIT ══════════════════ */
+/* ══════════════════ EXERCISE ANIMATIONS ══════════════════
+   A tiny pose-interpolation engine. Each exercise is a set of
+   keyframe poses (12 joints), smoothly interpolated in a loop. */
+const pz = (b,o)=>Object.assign({},b,o);
+
+const STAND  = {hd:[106,30],nk:[104,44],mb:[102,63],hp:[100,82],el:[107,61],ha:[109,76],el2:[101,61],ha2:[99,76],kn:[102,106],an:[102,130],kn2:[98,106],an2:[98,130]};
+const SUPINE = {hd:[26,122],nk:[40,121],mb:[60,119],hp:[84,118],el:[56,124],ha:[70,126],el2:[52,125],ha2:[66,127],kn:[104,94],an:[112,127],kn2:[100,94],an2:[108,127]};
+const QUAD   = {hd:[140,90],nk:[128,98],mb:[99,97],hp:[70,100],el:[130,114],ha:[132,129],el2:[126,114],ha2:[128,129],kn:[60,128],an:[38,128],kn2:[64,128],an2:[42,128]};
+
+const ANIMS = {
+  march:{props:["floor"],mode:"loop",dur:380,poses:[
+    STAND,
+    pz(STAND,{kn:[115,90],an:[110,112],el2:[112,55],ha2:[120,62],el:[96,58],ha:[90,68]}),
+    STAND,
+    pz(STAND,{kn2:[115,90],an2:[110,112],el:[112,55],ha:[120,62],el2:[96,58],ha2:[90,68]})]},
+  shoulders:{props:["floor"],mode:"loop",dur:340,poses:[
+    pz(STAND,{el:[106,60],ha:[107,74],el2:[103,60],ha2:[104,74]}),
+    pz(STAND,{el:[118,50],ha:[130,52],el2:[115,51],ha2:[127,53]}),
+    pz(STAND,{el:[110,32],ha:[112,16],el2:[107,33],ha2:[109,17]}),
+    pz(STAND,{el:[90,50],ha:[80,56],el2:[87,51],ha2:[77,57]})]},
+  hips:{props:["floor"],mode:"loop",dur:420,poses:[
+    pz(STAND,{hp:[108,82],mb:[98,63],kn:[105,106],kn2:[101,106]}),
+    pz(STAND,{hp:[100,80],mb:[102,61]}),
+    pz(STAND,{hp:[92,82],mb:[106,63],kn:[97,106],kn2:[95,106]}),
+    pz(STAND,{hp:[100,84],mb:[102,65]})]},
+  catcow:{props:["floor"],mode:"pingpong",dur:900,poses:[
+    pz(QUAD,{mb:[99,78],hd:[138,104]}),
+    pz(QUAD,{mb:[99,116],hd:[144,84]})]},
+  pelvic:{props:["floor"],mode:"pingpong",dur:750,poses:[
+    SUPINE,
+    pz(SUPINE,{mb:[60,123],hp:[82,120]})]},
+  walk:{props:["floor"],mode:"loop",dur:430,poses:[
+    pz(STAND,{an:[86,130],kn:[94,107],an2:[116,129],kn2:[110,105],el:[112,54],ha:[121,60],el2:[95,58],ha2:[88,70]}),
+    pz(STAND,{an:[116,129],kn:[110,105],an2:[86,130],kn2:[94,107],el:[95,58],ha:[88,70],el2:[112,54],ha2:[121,60]})]},
+  wallpush:{props:["floor","wall"],mode:"pingpong",dur:750,poses:[
+    {hd:[131,41],nk:[124,50],mb:[114,66],hp:[104,84],el:[148,54],ha:[172,58],el2:[146,58],ha2:[172,62],kn:[97,107],an:[92,130],kn2:[100,107],an2:[96,130]},
+    {hd:[143,38],nk:[136,46],mb:[122,62],hp:[110,82],el:[150,64],ha:[172,58],el2:[148,68],ha2:[172,62],kn:[100,106],an:[92,130],kn2:[103,106],an2:[96,130]}]},
+  boxpush:{props:["floor","box"],mode:"pingpong",dur:750,poses:[
+    {hd:[144,58],nk:[136,66],mb:[122,80],hp:[108,96],el:[148,82],ha:[160,98],el2:[146,86],ha2:[158,100],kn:[95,112],an:[80,130],kn2:[98,113],an2:[83,130]},
+    {hd:[157,66],nk:[148,72],mb:[130,84],hp:[114,94],el:[152,74],ha:[160,98],el2:[150,78],ha2:[158,100],kn:[97,113],an:[80,130],kn2:[100,114],an2:[83,130]}]},
+  floorpush:{props:["floor"],mode:"pingpong",dur:750,poses:[
+    {hd:[146,74],nk:[135,80],mb:[110,90],hp:[85,100],el:[143,104],ha:[150,128],el2:[141,106],ha2:[148,129],kn:[55,120],an:[30,128],kn2:[58,121],an2:[33,129]},
+    {hd:[150,92],nk:[138,98],mb:[112,104],hp:[88,112],el:[155,112],ha:[150,128],el2:[153,114],ha2:[148,129],kn:[56,122],an:[30,129],kn2:[59,123],an2:[33,129]}]},
+  sitstand:{props:["floor","chair"],mode:"pingpong",dur:800,poses:[
+    {hd:[88,45],nk:[84,56],mb:[80,74],hp:[72,95],el:[94,64],ha:[104,74],el2:[90,66],ha2:[100,76],kn:[100,96],an:[102,130],kn2:[96,96],an2:[98,130]},
+    {hd:[103,48],nk:[98,58],mb:[92,72],hp:[78,92],el:[112,60],ha:[124,66],el2:[108,62],ha2:[120,68],kn:[100,96],an:[102,130],kn2:[96,96],an2:[98,130]},
+    {hd:[107,33],nk:[104,45],mb:[102,62],hp:[100,80],el:[108,62],ha:[110,76],el2:[102,62],ha2:[104,76],kn:[101,106],an:[102,130],kn2:[97,106],an2:[98,130]}]},
+  bridge:{props:["floor"],mode:"pingpong",dur:850,poses:[
+    SUPINE,
+    pz(SUPINE,{hp:[80,102],mb:[58,112],kn:[104,92]})]},
+  birddog:{props:["floor"],mode:"pingpong",dur:900,poses:[
+    QUAD,
+    pz(QUAD,{el:[148,94],ha:[166,92],kn2:[44,100],an2:[20,98],hd:[142,88]})]},
+  deadbug:{props:["floor"],mode:"pingpong",dur:850,poses:[
+    pz(SUPINE,{el:[46,102],ha:[48,86],el2:[42,103],ha2:[44,88],kn:[96,92],an:[114,94],kn2:[92,93],an2:[110,96]}),
+    pz(SUPINE,{el:[30,104],ha:[16,94],el2:[42,103],ha2:[44,88],kn:[96,92],an:[114,94],kn2:[108,104],an2:[132,112]})]},
+  plank:{props:["floor"],mode:"pingpong",dur:1200,poses:[
+    {hd:[144,84],nk:[134,90],mb:[112,97],hp:[88,106],el:[140,126],ha:[158,127],el2:[136,126],ha2:[154,127],kn:[60,128],an:[38,127],kn2:[64,128],an2:[42,127]},
+    {hd:[144,82],nk:[134,88],mb:[112,95],hp:[88,104],el:[140,126],ha:[158,127],el2:[136,126],ha2:[154,127],kn:[60,128],an:[38,127],kn2:[64,128],an2:[42,127]}]},
+  sideplank:{props:["floor"],mode:"pingpong",dur:1200,poses:[
+    {hd:[50,86],nk:[52,98],mb:[72,102],hp:[92,110],el:[50,128],ha:[66,128],el2:[74,102],ha2:[88,108],kn:[112,127],an:[130,128],kn2:[114,128],an2:[132,129]},
+    {hd:[50,84],nk:[52,96],mb:[72,100],hp:[92,107],el:[50,128],ha:[66,128],el2:[74,100],ha2:[88,106],kn:[112,127],an:[130,128],kn2:[114,128],an2:[132,129]}]},
+  mcgill:{props:["floor"],mode:"pingpong",dur:900,poses:[
+    {hd:[26,122],nk:[40,121],mb:[62,119],hp:[86,118],el:[56,122],ha:[70,120],el2:[52,123],ha2:[66,121],kn:[106,96],an:[114,127],kn2:[112,120],an2:[138,123]},
+    {hd:[30,114],nk:[43,116],mb:[62,118],hp:[86,118],el:[56,122],ha:[70,120],el2:[52,123],ha2:[66,121],kn:[106,96],an:[114,127],kn2:[112,120],an2:[138,123]}]},
+  hamstring:{props:["floor"],mode:"pingpong",dur:1100,poses:[
+    {hd:[122,58],nk:[114,62],mb:[104,70],hp:[92,82],el:[114,74],ha:[118,88],el2:[110,76],ha2:[114,90],kn:[106,104],an:[120,127],kn2:[94,106],an2:[96,130]},
+    {hd:[124,63],nk:[116,66],mb:[105,73],hp:[92,84],el:[116,78],ha:[120,92],el2:[112,80],ha2:[116,94],kn:[106,104],an:[120,127],kn2:[94,106],an2:[96,130]}]},
+  hipflexor:{props:["floor"],mode:"pingpong",dur:1100,poses:[
+    {hd:[96,48],nk:[94,60],mb:[94,80],hp:[94,102],el:[100,74],ha:[98,86],el2:[88,74],ha2:[90,86],kn:[116,100],an:[118,128],kn2:[92,128],an2:[70,129]},
+    {hd:[102,48],nk:[100,60],mb:[100,80],hp:[100,102],el:[106,74],ha:[104,86],el2:[94,74],ha2:[96,86],kn:[118,100],an:[118,128],kn2:[92,128],an2:[70,129]}]},
+  chest:{props:["floor","wall"],mode:"pingpong",dur:1100,poses:[
+    {hd:[120,30],nk:[122,44],mb:[124,63],hp:[126,82],el:[148,48],ha:[172,50],el2:[118,62],ha2:[116,76],kn:[124,106],an:[124,130],kn2:[128,106],an2:[128,130]},
+    {hd:[114,30],nk:[118,44],mb:[122,63],hp:[126,82],el:[146,48],ha:[172,50],el2:[114,62],ha2:[112,76],kn:[124,106],an:[124,130],kn2:[128,106],an2:[128,130]}]},
+  child:{props:["floor"],mode:"pingpong",dur:1300,poses:[
+    {hd:[120,114],nk:[112,110],mb:[92,104],hp:[70,112],el:[130,122],ha:[150,127],el2:[126,123],ha2:[146,128],kn:[66,127],an:[46,128],kn2:[70,128],an2:[50,129]},
+    {hd:[120,112],nk:[112,108],mb:[92,101],hp:[70,110],el:[130,122],ha:[150,127],el2:[126,123],ha2:[146,128],kn:[66,127],an:[46,128],kn2:[70,128],an2:[50,129]}]}
+};
+
+const EX_ANIM = {wu1:"march",wu2:"shoulders",wu3:"hips",wu4:"catcow",wu5:"pelvic",wu6:"walk",
+  e2:"sitstand",e3:"bridge",e4:"birddog",e5:"deadbug",walk:"walk",
+  c1:"plank",c2:"sideplank",c3:"mcgill",
+  s1:"hamstring",s2:"hipflexor",s3:"chest",s4:"child",s5:"catcow",rstr:"child"};
+const PUSH_ANIM = ["wallpush","boxpush","boxpush","boxpush","floorpush"];
+
+function animKeyFor(id){
+  if(id==="e1") return PUSH_ANIM[state.pushIdx||0];
+  return EX_ANIM[id];
+}
+
+const PROPS = {
+  floor:'<line x1="8" y1="131" x2="212" y2="131" class="p-line"/>',
+  wall:'<line x1="176" y1="18" x2="176" y2="131" class="p-line"/>',
+  chair:'<path d="M48 62 L48 98 L86 98 M52 98 L52 130 M82 98 L82 130" class="p-line"/>',
+  box:'<path d="M150 100 L185 100 L185 130 M150 100 L150 130" class="p-line"/>',
+};
+
+let animRAF = null;
+function syncAnim(){
+  if(animRAF){ cancelAnimationFrame(animRAF); animRAF = null; }
+  const slot = document.getElementById("anim-slot");
+  if(!slot || !state.expanded) return;
+  const anim = ANIMS[animKeyFor(state.expanded)];
+  if(!anim) return;
+
+  slot.innerHTML = `<svg viewBox="0 0 220 150" aria-hidden="true">
+    ${anim.props.map(p=>PROPS[p]).join("")}
+    <polyline class="fig-far" data-j="armF"/>
+    <polyline class="fig-far" data-j="legF"/>
+    <path class="fig" data-j="spine"/>
+    <polyline class="fig" data-j="armN"/>
+    <polyline class="fig" data-j="legN"/>
+    <circle class="j-head" data-j="head" r="8"/>
+  </svg>`;
+  const $ = j => slot.querySelector(`[data-j="${j}"]`);
+  const els = {spine:$("spine"),head:$("head"),armN:$("armN"),armF:$("armF"),legN:$("legN"),legF:$("legF")};
+
+  let seq = anim.mode==="pingpong" ? [...anim.poses, ...anim.poses.slice(1,-1).reverse()] : anim.poses;
+  if(seq.length<2) seq = [...seq, ...seq];
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const start = performance.now();
+
+  const draw = f => {
+    const pt = (a,b,k)=>[a[k][0]+(b[k][0]-a[k][0])*f.t, a[k][1]+(b[k][1]-a[k][1])*f.t];
+    const a=f.a, b=f.b;
+    const P = k => pt(a,b,k);
+    const [hx,hy]=P("hd"), nk=P("nk"), mb=P("mb"), hp=P("hp");
+    els.spine.setAttribute("d",`M ${hp[0]} ${hp[1]} Q ${mb[0]} ${mb[1]} ${nk[0]} ${nk[1]}`);
+    els.head.setAttribute("cx",hx); els.head.setAttribute("cy",hy);
+    const pl=(el,pts)=>el.setAttribute("points",pts.map(p=>p.join(",")).join(" "));
+    pl(els.armN,[nk,P("el"),P("ha")]);
+    pl(els.armF,[nk,P("el2"),P("ha2")]);
+    pl(els.legN,[hp,P("kn"),P("an")]);
+    pl(els.legF,[hp,P("kn2"),P("an2")]);
+  };
+
+  if(reduced){ draw({a:seq[0],b:seq[0],t:0}); return; }
+
+  const step = now => {
+    const total = seq.length*anim.dur;
+    const t = (Math.max(0, now-start)%total)/anim.dur;
+    const i = Math.floor(t), f0 = t-i;
+    const eased = f0*f0*(3-2*f0);
+    draw({a:seq[i], b:seq[(i+1)%seq.length], t:eased});
+    animRAF = requestAnimationFrame(step);
+  };
+  animRAF = requestAnimationFrame(step);
+}
+
+
 loadData().then(d=>{ state.data=d; render(); });
 </script>
 </body>
